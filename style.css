@@ -1,0 +1,44 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+.mainWrap {
+    padding: 50px;
+    display: flex;
+}
+
+canvas {
+    border: 1px solid black;
+}
+
+.controls {
+    margin-left: 50px;
+}
+
+.findPathButton {
+    font-size: 24px;
+    padding: 8px 16px;
+    cursor: pointer;
+}
+
+.findPathButton:disabled {
+    cursor: not-allowed;
+}
+
+p {
+    font-size: 18px;
+}
+
+span {
+    font-weight: bold;
+}
+
+.bfsH {
+    background-color: rgba(51, 204, 51, 0.3);
+}
+
+.dfsH {
+    background-color: rgba(255, 0, 0, 0.3);
+}
