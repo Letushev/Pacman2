@@ -71,9 +71,25 @@ class GameGraph {
         return random;
     };
 
+    getAllPathCells = () => {
+        const all = [];
+        for (let i = 0; i < this.cells; i++) {
+            if (!this.isBrick(i)) {
+                all.push(i);
+            }
+        }
+        
+        return all;
+    }
+
     // Пошук у ширину
     findPathBFS = (start, end) => {
         let steps = 0;
+
+        if (Array.isArray(end) && end.includes(start)) {
+            return { path: [start, start], steps };
+        }
+
         if (start === end) {
             return { path: [start, end], steps };
         }
@@ -101,7 +117,7 @@ class GameGraph {
                 visited[v] = true;
                 steps++;
                 
-                if (v === end) {
+                if (v === end || (Array.isArray(end) && end.includes(v))) {
                     path = [v];
                     while (u !== start) {
                         path.push(u);
@@ -169,24 +185,23 @@ class Game {
         this.graph = new GameGraph(this.rows, this.columns, MAZE01);
 
         this.ctx = document.getElementById('maze').getContext('2d');
-        this.findPathButton = document.querySelector('.findPathButton');
-        this.timeText1 = document.querySelector('.time1');
-        this.stepsText1 = document.querySelector('.steps1');
-        this.timeText2 = document.querySelector('.time2');
-        this.stepsText2 = document.querySelector('.steps2');
+        this.levelEl = document.querySelector('.level');
+        this.scoreEl = document.querySelector('.score');
+        this.levelEl.textContent = 1;
+        this.scoreEl.textContent = 0;
+
+        this.level = 1;
 
         this.pacmanIndex = null;
         this.pacman = null;
-        this.pacmanPathIndex = null;
 
-        this.goalIndex = null;
-        this.goal = null;
+        this.ghostsIndexes = [];
+        this.ghosts = [];
 
-        this.path = null;
-        this.pathDFS = null;
+        this.points = [];
+        this.score = 0;
 
         this.start();
-        this.findPathButton.addEventListener('click', this.findPath);
     }
 
     start = () => {
@@ -197,9 +212,33 @@ class Game {
         this.pacman = this.getCellPosition(this.pacmanIndex);
         this.drawPacman();
 
-        this.goalIndex = this.graph.getRandomPosition()
-        this.goal = this.getCellPosition(this.goalIndex);
-        this.drawGoal();
+        this.points = this.graph.getAllPathCells().filter(i => i !== this.pacmanIndex);
+        this.drawPoints();
+
+        for (let i = 0; i < this.level; i++) {
+            this.ghostsIndexes[i] = this.getRandomPos();
+            this.ghosts[i] = this.getCellPosition(this.ghostsIndexes[i]);
+        }
+        
+        this.drawGhosts();
+        setTimeout(() => {
+            const nextPI = this.minimax(this.pacmanIndex, this.ghostsIndexes, 0, 2, true, this.pacmanIndex).pacman;
+            const nextPP = this.getCellPosition(nextPI);
+            const nextGI = this.ghostsIndexes.map(g => this.minimax(this.pacmanIndex, [g], 0, 2, false, this.pacmanIndex).ghost);
+            const nextGP = nextGI.map(this.getCellPosition);
+            this.run(nextPI, nextPP, nextGI, nextGP);
+        }, 1000);
+    }
+
+    // не такий як у пакмена
+    getRandomPos = () => {
+        let p;
+
+        do {
+            p = this.graph.getRandomPosition();
+        } while (p === this.pacmanIndex);
+        
+        return p;
     }
 
     getCellPosition = i => ({
@@ -225,127 +264,190 @@ class Game {
         this.ctx.fill();
     }
 
-    drawGoal = () => {
-        this.ctx.beginPath();
-        this.ctx.fillStyle = 'red';
-        this.ctx.arc(this.goal.x + 10, this.goal.y + 10, 7, 0, Math.PI * 2);
-        this.ctx.stroke();
-        this.ctx.fill();
+    drawGhosts = () => {
+        this.ctx.fillStyle = 'gray';
+        this.ghosts.forEach(g => {
+            this.ctx.beginPath();
+            this.ctx.fillRect(g.x + 3, g.y + 3, 14, 14);
+        })
     }
-    
-    drawPath = (alg = true) => {
-        this.ctx.fillStyle = alg ? 'rgba(51, 204, 51, 0.3)' :  'rgba(255, 0, 0, 0.3)';
-        const path = alg ? this.path : this.pathDFS;
 
-        path.forEach(cell => {
-            const p = this.getCellPosition(cell);
-            this.ctx.fillRect(p.x, p.y, 20, 20);
+    drawPoints = () => {
+        this.ctx.fillStyle = 'orange';
+        this.points.forEach(i => {
+            const p = this.getCellPosition(i);
+            this.ctx.beginPath();
+            this.ctx.arc(p.x + 10, p.y + 10, 4, 0, Math.PI * 2);
+            this.ctx.fill();
         });
     }
 
-    findPath = () => {
-        this.findPathButton.disabled = true;
+    minimax = (pacman, ghost, depth, maxDepth, isPacman, from) => {
+        const result = {
+            pacman,
+            ghost,
+            distance: isPacman ? -Infinity : Infinity,
+        };
 
-        const start1 = performance.now();
-        const bfs = this.graph.findPathBFS(this.pacmanIndex, this.goalIndex);
-        const end1 = performance.now();
+        if (depth === maxDepth) {
+            // середнє арифметичне відстаней до привидів
+            const distanceToGhost = ghost.reduce((sum, g) => {
+                const d = this.graph.findPathBFS(pacman, g).path.length;
+                return sum + d;
+            }, 0) / ghost.length;
 
-        this.path = bfs.path;
-        this.timeText1.textContent = (end1 - start1).toFixed(2);
-        this.stepsText1.textContent = bfs.steps;
-        
-        const start2 = performance.now();
-        const dfs = this.graph.findPathDFS(this.pacmanIndex, this.goalIndex)
-        const end2 = performance.now();
+            // кількість балів, що заробить пакмен, якщо піде цим шляхом
+            const points = this.graph.findPathBFS(from, pacman).path.filter(c => this.points.includes(c)).length;
 
-        this.pathDFS = dfs.path;
-        this.timeText2.textContent = (end2 - start2).toFixed(2);
-        this.stepsText2.textContent = dfs.steps;
+            // відстань до найближчого балу
+            const distanceToPoints = this.graph.findPathBFS(pacman, this.points).path.length
 
-        this.drawPath();
-        this.drawPath(false);
-        this.drawGoal();
-        this.drawPacman();
+            return {
+                pacman, 
+                ghost, 
+                distance: distanceToGhost + points - distanceToPoints / 2
+            };
+        }
 
-        setTimeout(() => {
-           this.animatePacman(1);
-        }, 1000);
+        if (isPacman) {
+            this.graph.nodes[pacman].forEach(n => {
+                const distance = this.minimax(n, ghost, depth + 1, maxDepth, false, from).distance;
+
+                if (distance > result.distance) {
+                    result.pacman = n;
+                    result.distance = distance;
+                }
+            });
+
+            return result;
+        } else {
+            depth++
+            const ghostsCombinations = combineArrays(ghost.map(g => this.graph.nodes[g]));
+
+            ghostsCombinations.forEach(c => {
+                const distance = this.minimax(pacman, c, depth, maxDepth, true, from).distance;
+                
+                if (distance < result.distance) {
+                    result.ghost = c;
+                    result.distance = distance;
+                }
+            })
+            
+            return result;
+        }
     }
 
-    animatePacman = cell => {
-        let index = cell;
-        const newPos = { ...this.pacman };
-        const to = this.getCellPosition(this.path[index]);
-        const movement = 2;
+    move = (pos, newPos, speed = 5) => {
+        const position = { ...pos };
 
         let top = false;
         let right = false;
         let bottom = false;
         let left = false;
 
-        const isTo = () => {
-            newPos.x = to.x;
-            newPos.y = to.y;
-            this.pacman = { ...newPos };
-            this.pacmanIndex = this.path[index];
-            index++;
-        };
-
-        if (to.x > this.pacman.x) {
+        if (newPos.x > pos.x) {
             right = true;
-        } else if (to.x < this.pacman.x) {
+        } else if (newPos.x < pos.x) {
             left = true;
-        } else if (to.y > this.pacman.y) {
+        } else if (newPos.y > pos.y) {
             bottom = true;
-        } else if (to.y < this.pacman.y) {
+        } else if (newPos.y < pos.y) {
             top = true;
         }
 
         if (top) { 
-            newPos.y -= movement;
-            if (newPos.y <= to.y) {
-                isTo();
+            position.y -= speed;
+            if (position.y <= newPos.y) {
+                position.y = newPos.y;
             }
         }
 
         if (bottom) { 
-            newPos.y += movement;
-            if (newPos.y >= to.y) {
-                isTo();
+            position.y += speed;
+            if (position.y >= newPos.y) {
+                position.y = newPos.y;
             }
         }
 
         if (right) { 
-            newPos.x += movement;
-            if (newPos.x >= to.x) { 
-                isTo();
+            position.x += speed;
+            if (position.x >= newPos.x) { 
+                position.x = newPos.x;
             }
         }
 
         if (left) { 
-            newPos.x -= movement;
-            if (newPos.x <= to.x) {
-                isTo();
+            position.x -= speed;
+            if (position.x <= newPos.x) {
+                position.x = newPos.x;
             }
         }
 
-        this.pacman = { ...newPos };
-        
+        return position;
+    }
+
+    checkGhostsPositions = (g1, g2) => g1.every((g, index) => g.x === g2[index].x && g.y === g2[index].y);
+
+    run = (pI, pP, gI, gP) => {
+        let nextPI = pI;
+        let nextPP = pP;
+        let nextGI = gI;
+        let nextGP = gP;
+
+        // пакмен дістався позиції, визначає наступну
+        if (this.pacman.x === pP.x && this.pacman.y === pP.y) {
+            this.pacmanIndex = pI;
+
+            if (this.points.includes(this.pacmanIndex)) {
+                this.points.splice(this.points.indexOf(this.pacmanIndex), 1);
+                this.score++;
+                this.scoreEl.textContent = this.score;
+
+                // пакмен переміг, зібравши усі бали
+                if (!this.points.length) {
+                    this.level++;
+                    this.score = 0;
+                    this.levelEl.textContent = this.level;
+                    this.start();
+                    return;
+                }
+            }
+
+            nextPI = this.minimax(this.pacmanIndex, this.ghostsIndexes, 0, 2, true, this.pacmanIndex).pacman;
+            nextPP = this.getCellPosition(nextPI);
+        }
+
+        // привиди дісталися позиції, визначають наступні
+        if (this.checkGhostsPositions(this.ghosts, gP)) {
+            this.ghostsIndexes = gI;
+            if (Math.random() > 0.25) {
+                nextGI = this.ghostsIndexes.map(g => this.minimax(this.pacmanIndex, [g], 0, 2, false, this.pacmanIndex).ghost);
+            } else {
+                nextGI = this.ghostsIndexes.map(g => randomItem(this.graph.nodes[g]))
+            }
+
+            nextGP = nextGI.map(this.getCellPosition);
+        }
+
+        this.pacman = this.move(this.pacman, nextPP);
+        this.ghosts = this.ghosts.map((g, i) => this.move(g, nextGP[i]));
+
         this.clearCanvas();
 
         this.drawMaze();
-        this.drawPath();
-        this.drawPath(false);
-        this.drawGoal();
+        this.drawPoints();
         this.drawPacman();
+        this.drawGhosts();
 
         const id = requestAnimationFrame(() => {
-            this.animatePacman(index);
+            this.run(nextPI, nextPP, nextGI, nextGP);
         });
 
-        if (newPos.x === this.goal.x && newPos.y == this.goal.y) {
-            this.findPathButton.disabled = false;
-            this.start();
+        // привід наздогнав пакмена
+        if (this.ghosts.some(g => {
+            return Math.abs((this.pacman.x + 10) - (g.x + 10)) <= 16
+                && Math.abs((this.pacman.y + 10) - (g.y + 10)) <= 16;
+        })) {
             cancelAnimationFrame(id);
         }
     };

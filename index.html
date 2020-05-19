@@ -10,19 +10,12 @@
     <div class="mainWrap">
         <canvas id="maze" width="520" height="580"></canvas>
         <div class="controls">
-            <button class="findPathButton">Знайти шлях</button>
-            <h1 class="bfsH">Пошук у ширину</h1>
-            <p>Час, витрачений на пошук: <span class="time1"></span> мілісекунд</p>
-            <p>Кількість кроків, зроблених під час пошуку: <span class="steps1"></span></p>
-
-            <hr />
-
-            <h1 class="dfsH">Пошук у глибину</h1>
-            <p>Час, витрачений на пошук: <span class="time2"></span> мілісекунд</p>
-            <p>Кількість кроків, зроблених під час пошуку: <span class="steps2"></span></p>
+            <p>Рівень: <span class="level"></span></p>
+            <p>Кількість балів: <span class="score"></span></p>
         </div>
     </div>
 
+    <script src="helpers.js"></script>
     <script src="maze.js"></script>
     <script src="index.js"></script>
 </body>
