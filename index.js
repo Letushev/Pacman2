@@ -398,6 +398,7 @@ class Game {
         if (this.pacman.x === pP.x && this.pacman.y === pP.y) {
             this.pacmanIndex = pI;
 
+            // пакмен отримує бал
             if (this.points.includes(this.pacmanIndex)) {
                 this.points.splice(this.points.indexOf(this.pacmanIndex), 1);
                 this.score++;
@@ -420,6 +421,8 @@ class Game {
         // привиди дісталися позиції, визначають наступні
         if (this.checkGhostsPositions(this.ghosts, gP)) {
             this.ghostsIndexes = gI;
+
+            // З ймовірністю 0.25 наступний крок привида буде обраний випадково
             if (Math.random() > 0.25) {
                 nextGI = this.ghostsIndexes.map(g => this.minimax(this.pacmanIndex, [g], 0, 2, false, this.pacmanIndex).ghost);
             } else {

@@ -68,16 +68,4 @@ function odometer_increment(odometer, array_of_arrays) {
 
 }
 
-function arraysEqual(a, b) {
-    if (a === b) return true;
-    if (a == null || b == null) return false;
-    if (a.length != b.length) return false;
-
-    for (let i = 0; i < a.length; ++i) {
-        if (a[i] !== b[i]) return false;
-    }
-
-    return true;
-}
-
 const randomItem = items => items[Math.floor(Math.random() * items.length)];
